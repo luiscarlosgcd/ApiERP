@@ -46,7 +46,7 @@ builder.Services.AddSwaggerGen(s =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options => options.TokenValidationParameters = new Authentication().AuthParameters());
 
-builder.Services.AddDbContext<Erpontext>(opt => opt.UseSqlServer(builder.Configuration.GetConnectionString("cadenaSQL")));
+builder.Services.AddDbContext<ERPContext>(opt => opt.UseSqlServer(builder.Configuration.GetConnectionString("cadenaSQL")));
 
 builder.Services.AddControllers().AddJsonOptions(opt =>
 {
