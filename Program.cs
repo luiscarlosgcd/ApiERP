@@ -1,9 +1,11 @@
+using System;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using System.Text.Json.Serialization;
 using ApiERP.Middlewares;
-using System;
+using ApiERP.Models;
+using ApiERP.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,11 +44,12 @@ builder.Services.AddSwaggerGen(s =>
                 });
 });
 
+builder.Services.AddTransient<IUsuarioService, UsuarioService>();
+
+builder.Services.AddDbContext<ERPContext>(opt => opt.UseSqlServer(builder.Configuration.GetConnectionString("cadenaSQL")));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options => options.TokenValidationParameters = new Authentication().AuthParameters());
-
-builder.Services.AddDbContext<ERPContext>(opt => opt.UseSqlServer(builder.Configuration.GetConnectionString("cadenaSQL")));
 
 builder.Services.AddControllers().AddJsonOptions(opt =>
 {
