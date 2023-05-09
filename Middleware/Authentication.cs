@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Linq;
 using System.Text.Json;
@@ -8,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using System.Text;
 using System.Security.Claims;
 using ApiERP.Dto;
-using Microsoft.IdentityModel.Tokens;
 
 namespace ApiERP.Middlewares
 {
@@ -26,9 +26,9 @@ namespace ApiERP.Middlewares
             _configuration = configuration;
         }
 
-        public Authentication()
+        public Authentication(IConfiguration configuration)
         {
-            _configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            _configuration = configuration;
         }
 
         public async Task Invoke(HttpContext context)
@@ -52,6 +52,18 @@ namespace ApiERP.Middlewares
 
                 user = JsonSerializer.Deserialize<DtoUserInfo>(jsonString);
 
+                var expires = tokenS.ValidTo.ToUniversalTime();
+                var now = DateTime.UtcNow;
+
+                if ((expires - now).TotalSeconds < 40) // Refresh the token if it's about to expire in less than 5 minutes
+                {
+                    // Generate a new token with a new expiration time
+                    var newToken = GenerateTokenJwt(jsonString);
+
+                    // Update the response header with the new token
+                    context.Response.Headers["refresh-token"] = $"Bearer {newToken}";
+                }
+
                 await _next(context);
             }
 
@@ -64,10 +76,10 @@ namespace ApiERP.Middlewares
         public string GenerateTokenJwt(string username)
         {
             // appsetting for Token JWT
-            var secretKey = _configuration.GetSection("Configuration").GetValue<string>("JWT_SECRET_KEY");
-            var audienceToken = _configuration.GetSection("Configuration").GetValue<string>("JWT_AUDIENCE_TOKEN");
-            var issuerToken = _configuration.GetSection("Configuration").GetValue<string>("JWT_ISSUER_TOKEN");
-            var expireTime = _configuration.GetSection("Configuration").GetValue<string>("JWT_EXPIRE_MINUTES");
+            var secretKey = _configuration.GetSection("JWT").GetValue<string>("secretKey");
+            var audienceToken = _configuration.GetSection("JWT").GetValue<string>("audienceToken");
+            var issuerToken = _configuration.GetSection("JWT").GetValue<string>("issuerToken");
+            var expireTime = _configuration.GetSection("JWT").GetValue<string>("expireTime");
 
             var securityKey = new SymmetricSecurityKey(System.Text.Encoding.Default.GetBytes(secretKey));
             var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256Signature);
@@ -92,20 +104,21 @@ namespace ApiERP.Middlewares
 
         public TokenValidationParameters AuthParameters()
         {
-            var secretKey = _configuration.GetSection("Configuration").GetValue<string>("JWT_SECRET_KEY");
-            var audienceToken = _configuration.GetSection("Configuration").GetValue<string>("JWT_AUDIENCE_TOKEN");
-            var issuerToken = _configuration.GetSection("Configuration").GetValue<string>("JWT_ISSUER_TOKEN");
+            var secretKey = _configuration.GetSection("JWT").GetValue<string>("secretKey");
+            var audienceToken = _configuration.GetSection("JWT").GetValue<string>("audienceToken");
+            var issuerToken = _configuration.GetSection("JWT").GetValue<string>("issuerToken");
             var securityKey = new SymmetricSecurityKey(System.Text.Encoding.Default.GetBytes(secretKey));
 
             return new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidateAudience = true,
-                ValidateLifetime = false,
+                ValidateLifetime = true, //false
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = issuerToken,
                 ValidAudience = audienceToken,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+                LifetimeValidator = LifetimeValidator
             };
         }
 
@@ -134,4 +147,3 @@ namespace ApiERP.Middlewares
         }
     }
 }
-
