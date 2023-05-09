@@ -14,11 +14,14 @@ namespace ApiERP.Controllers
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioService _service;
+        private readonly IConfiguration _configuration;
 
+        public IConfiguration Configuration { get; }
 
-        public UsuarioController(IUsuarioService service)
+        public UsuarioController(IUsuarioService service, IConfiguration configuration)
         {
             _service = service;
+            _configuration = configuration;
         }
 
         [HttpPost("login")]
@@ -41,7 +44,7 @@ namespace ApiERP.Controllers
                 Nombre = user.Usuario1
             };
 
-            string token = new Authentication().GenerateTokenJwt(JsonSerializer.Serialize<DtoUserInfo>(userInfo));
+            string token = new Authentication(_configuration).GenerateTokenJwt(JsonSerializer.Serialize<DtoUserInfo>(userInfo));
             return Ok(new
             {
                 AccesToken = token
