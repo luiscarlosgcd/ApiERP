@@ -25,8 +25,7 @@ namespace ApiERP.Controllers
         {
             try
             {
-                //var lista = await _erpContext.Clientes.Include(c => c.Monitors).ToListAsync();
-                //var lista = await _ERPContext.Gasolineros.Include(c => c.Monitors).AsSplitQuery().ToListAsync();
+                //Obtenemos Gasolineros con sus monitores designados
                 var lista = await _ERPContext.Gasolineros
                     .Join(
                         _ERPContext.Monitors,
@@ -74,5 +73,27 @@ namespace ApiERP.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("version")]
+        public async Task<IActionResult> GetVersion()
+        {
+            try
+            {
+                
+                var version = await _ERPContext.Componentes.FirstOrDefaultAsync(c => c.ComponenteId == 1);
+
+                if (version == null)
+                {
+                    return BadRequest("No se encontro la version para consumir el servicio");
+                }
+
+                return Ok(version);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { mensaje = ex.Message });
+            }
+        }
     }
+
 }
