@@ -115,6 +115,12 @@ namespace ApiERP.Models
                 entity.Property(e => e.Version)
                     .HasMaxLength(50)
                     .IsUnicode(false);
+
+                entity.HasOne(d => d.Gasolinero)
+                    .WithMany(p => p.Monitors)
+                    .HasForeignKey(d => d.GasolineroId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK_monitor_gasolinero");
             });
 
             modelBuilder.Entity<SolicitudCambio>(entity =>

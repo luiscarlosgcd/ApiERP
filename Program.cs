@@ -7,18 +7,15 @@ using ApiERP.Middlewares;
 using ApiERP.Models;
 using ApiERP.Services;
 
+
+//tal vez esta fallando la configuracion
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
-
 builder.Services.AddSwaggerGen(s =>
 {
-    s.SwaggerDoc("v1", new OpenApiInfo { Version = "v1", Title = "Api ERP" });
+    s.SwaggerDoc("v1", new OpenApiInfo { Version = "v1", Title = "Api Bot" });
     s.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization",
@@ -44,45 +41,55 @@ builder.Services.AddSwaggerGen(s =>
                 });
 });
 
+var environment = builder.Environment;
+var configurationBuilder = new ConfigurationBuilder()
+    .SetBasePath(environment.ContentRootPath)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+var Configuration = configurationBuilder.Build();
+
+//Usuario
 builder.Services.AddTransient<IUsuarioService, UsuarioService>();
 
-builder.Services.AddDbContext<ERPContext>(opt => opt.UseSqlServer(builder.Configuration.GetConnectionString("cadenaSQL")));
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options => options.TokenValidationParameters = new Authentication().AuthParameters());
-
-builder.Services.AddControllers().AddJsonOptions(opt =>
+//DbContext
+builder.Services.AddDbContext<ERPContext>(options =>
 {
-    opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-    opt.JsonSerializerOptions.PropertyNamingPolicy = null;
+    options.UseSqlServer(Configuration.GetConnectionString("cadenaSQL"));
 });
 
-var reglasCors = "ReglasCors";
-builder.Services.AddCors(opt =>
-{
-    opt.AddPolicy(name: reglasCors, builder =>
-    {
-        builder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-    });
-});
+//Authentication
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options => options.TokenValidationParameters = new Authentication(Configuration).AuthParameters());
+
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseDeveloperExceptionPage();
 app.UseHttpsRedirection();
-
-app.UseCors(reglasCors);
-
 app.UseAuthentication();
+app.UseRouting();
 
-app.UseAuthorization();
+app.UseCors(options => options.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
-app.MapControllers();
+app.UseMiddleware<Authentication>();
+app.UseAuthorization(); //Allows [Authorize] and check token lifetime
+
+app.UseStaticFiles();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+    endpoints.MapDefaultControllerRoute();
+    endpoints.MapFallbackToFile("index.html");
+});
 
 app.Run();
